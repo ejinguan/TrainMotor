@@ -192,7 +192,7 @@ void loop() {
   
 
   /**********************************************************************************
-  /* Step X: Read and process direction status
+  /* Step 2: Read and process direction inputs from controller
   /**********************************************************************************/
   
   // If pin is not the same as lastPress, delay some time for debounce
@@ -201,7 +201,7 @@ void loop() {
   
   // If pin is not the same as lastPress, delay some time for debounce
   if (digitalRead(_pin_dirB)!=lastPress_B) myTC_B.activeDelayMillis(50);
-  desiredDir_B = digitalRead(_pin_dirB)==LOW?TM_EAST:TM_WEST;  
+  desiredDir_B = digitalRead(_pin_dirB)==LOW?TM_EAST:TM_WEST;
 
   // Set direction if it's stopped
   if (myTC_A.getSpeedFinal()==0) myTC_A.setDirection(desiredDir_A);
@@ -214,7 +214,7 @@ void loop() {
 
 
   /**********************************************************************************
-  /* Step X: Read and process speed control
+  /* Step 3: Read and process speed control + track interlock state
   /**********************************************************************************/
   
   // Read speed control input
@@ -227,8 +227,10 @@ void loop() {
     
     if (!bIsRunningB) { // If B is not already running, read A speed
       speedIn_A = analogRead(A0);
+      speedIn_B = 0; // Make sure it's zero
     }
     if (!bIsRunningA) { // If A is not already running, read B speed
+      speedIn_A = 0; // Make sure it's zero
       speedIn_B = analogRead(A1);
     }  
   } else { // Tracks are not diverted. Read both signals
@@ -238,7 +240,7 @@ void loop() {
     speedIn_B = analogRead(A1);
   }
   
-  //int rawMotorSpeed = map(xAxis, 50, 900, 0, 255); // Map 50-900 to 0-255
+  // Map input speed (0~1024) to output speed (0~255)
   int rawMotorSpeed_A = SpeedCurve(speedIn_A);
   int rawMotorSpeed_B = SpeedCurve(speedIn_B);
   
@@ -254,7 +256,7 @@ void loop() {
 
 
   /**********************************************************************************
-  /* Step X: Update Serial, LED, I2C
+  /* Step 4: Update Serial, LED, I2C
   /**********************************************************************************/
 
   // Broadcast on I2C  
@@ -273,7 +275,8 @@ void loop() {
   UpdateLEDs();
 
 
-  /******** Update on Serial output if necessary ********/
+  /******** Update on Serial output if necessary -- every 50 loops ********/
+  loopcounter++;
   if (loopcounter % 50 == 0) {
         
     // Motor A
@@ -305,8 +308,6 @@ void loop() {
     Serial.print(",");
     
   }
-
-  loopcounter++;
   
   // delay 1ms for debounce
   //myTC_A.activeDelayMillis(1);
@@ -320,7 +321,7 @@ int SpeedCurve(int inSpeed) {
     if (inSpeed <= 800) return map (inSpeed, 600, 900, 100, 175);
     /*else*/            return map (inSpeed, 800, 900, 175, 255);
   } else {
-    return map(inSpeed, 50, 900, 0, 255);
+    return map(inSpeed, 50, 900, 0, 255); // Map input from 50-900 to 0-255
   }
 }
 
