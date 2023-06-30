@@ -70,6 +70,9 @@ CommandQueue queue(10);
 String strI2CCommand;         // for all incoming command data
 String strCommand;
 
+String strMessage;
+unsigned long lngCurrentMillis = 0;
+unsigned long lngNextBroadcastMillis = 0;
 
 /* For Serial Communication *****************************/
 
@@ -166,6 +169,8 @@ void setup() {
 }
 
 void loop() {
+  // Save current millis
+  lngCurrentMillis = millis();
   
   /**********************************************************************************
   /* Step 1: Process incoming commands on Serial and I2C
@@ -259,16 +264,26 @@ void loop() {
   /* Step 4: Update Serial, LED, I2C
   /**********************************************************************************/
 
-  // Broadcast on I2C  
-  if (bIsRunningA != bIsLastRunningA) {
+  // Broadcast on I2C
+  // If status changed or reached next broadcast timing
+  if (bIsRunningA != bIsLastRunningA || lngCurrentMillis > lngNextBroadcastMillis) {
+    strMessage = bIsRunningA?"s1on":"s1off"; // Sends s1on for run, s1off for stopped
+    strMessage = strMessage + '\n';
     Wire.beginTransmission(I2C_PointsController);
-    Wire.write(bIsRunningA?"s1on":"s1off"); // Sends s1on for run, s1off for stopped
+    Wire.write(strMessage.c_str()); 
+    Serial.println(strMessage);
     Wire.endTransmission();    
   }
-  if (bIsRunningB != bIsLastRunningB) {
+  if (bIsRunningB != bIsLastRunningB || lngCurrentMillis > lngNextBroadcastMillis) {
+    strMessage = bIsRunningB?"s2on":"s2off"; // Sends s2on for run, s2off for stopped
+    strMessage = strMessage + '\n';
     Wire.beginTransmission(I2C_PointsController);
-    Wire.write(bIsRunningB?"s2on":"s2off"); // Sends s2on for run, s2off for stopped
+    Wire.write(strMessage.c_str()); 
+    Serial.println(strMessage);
     Wire.endTransmission();    
+  }
+  if (lngCurrentMillis > lngNextBroadcastMillis) {
+    lngNextBroadcastMillis = lngCurrentMillis + 5000; // Update next broadcast timing
   }
 
 
@@ -277,7 +292,7 @@ void loop() {
 
   /******** Update on Serial output if necessary -- every 50 loops ********/
   loopcounter++;
-  if (loopcounter % 50 == 0) {
+  if (loopcounter % 200 == 0) {
         
     // Motor A
     Serial.print(rawMotorSpeed_A);
@@ -292,6 +307,7 @@ void loop() {
     Serial.print(myTC_A.getSpeedFinal());
     Serial.print(",");
 
+    Serial.print(myTC_A.getDirection());
     Serial.print(",");
     
     // Motor B
@@ -307,6 +323,8 @@ void loop() {
     Serial.print(myTC_B.getSpeedFinal());
     Serial.print(",");
     
+    Serial.print(myTC_B.getDirection());
+    Serial.println();
   }
   
   // delay 1ms for debounce
@@ -338,12 +356,12 @@ void UpdateLEDs() {
   
   // Update Direction LEDs  
   dir_A = myTC_A.getDirection();
-  Serial.print(dir_A);
+  //Serial.print(dir_A);
   digitalWrite(_pin_LEDdirA1, (dir_A==TM_EAST && !bFlashA)?HIGH:LOW);
   digitalWrite(_pin_LEDdirA2, (dir_A==TM_WEST && !bFlashA)?HIGH:LOW);
 
   dir_B = myTC_B.getDirection();
-  Serial.println(dir_B);  
+  //Serial.println(dir_B);  
   digitalWrite(_pin_LEDdirB1, (dir_B==TM_EAST && !bFlashB)?HIGH:LOW);
   digitalWrite(_pin_LEDdirB2, (dir_B==TM_WEST && !bFlashB)?HIGH:LOW);
   
